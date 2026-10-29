@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snowline</title>
+<style>
+  /* Original on-screen design: condensed, slanted editorial type over the picture. Chalk white, ink, signal red-orange, ice blue. */
+  :root { --chalk: #f6f5f1; --ink: #0e1014; --sig: #ff4f2e; --ice: #9fd6ff; --ok: #f4e19a; --bad: #ff6b5e;
+    --cond: 'Avenir Next Condensed', 'DIN Condensed', 'Barlow Condensed', 'Roboto Condensed', 'Arial Narrow', sans-serif; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d10; color: var(--chalk); user-select: none;
+    font-family: 'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  canvas { display: block; }
+  .hud { position: fixed; text-shadow: 0 2px 14px rgba(0,0,0,.4); pointer-events: none; }
+  #score { top: 26px; left: 32px; padding-left: 14px; border-left: 3px solid var(--sig); font: 600 36px/0.95 var(--cond); font-variant-numeric: tabular-nums; }
+  #score::before { content: 'SCORE'; display: block; margin-bottom: 5px; font: 600 10px/1 'Avenir Next', sans-serif; letter-spacing: .38em; opacity: .7; }
+  #best { top: 94px; left: 49px; font: 600 10px/1 'Avenir Next', sans-serif; letter-spacing: .26em; text-transform: uppercase; opacity: .6; }
+  #speed { bottom: 30px; left: 32px; font: italic 700 44px/1 var(--cond); font-variant-numeric: tabular-nums; }
+  #speed small { font: 600 10px/1 'Avenir Next', sans-serif; font-style: normal; letter-spacing: .3em; margin-left: 6px; opacity: .7; }
+  #where { bottom: 82px; left: 34px; font: 600 10px/1 'Avenir Next', sans-serif; letter-spacing: .3em; text-transform: uppercase; opacity: .65; }
+  #trick { bottom: 15%; left: 0; right: 0; text-align: center; font: italic 700 34px/1 var(--cond); letter-spacing: .03em; text-transform: uppercase;
+    transition: opacity .35s, transform .35s cubic-bezier(.2,1.4,.4,1); }
+  #trick.off { opacity: 0; transform: translateY(12px) scale(.96); }
+  #trick.ok { color: var(--ok); } #trick.bad { color: var(--bad); } #trick.live { color: var(--chalk); }
+  #trickpts { bottom: calc(15% - 38px); left: 50%; transform: translateX(-50%) skewX(-12deg); padding: 5px 14px 4px; white-space: nowrap;
+    font: 700 13px/1.2 'Avenir Next', sans-serif; letter-spacing: .22em; text-transform: uppercase; font-variant-numeric: tabular-nums;
+    color: var(--ink); background: var(--chalk); text-shadow: none; transition: opacity .3s; }
+  #trickpts.off { opacity: 0; } #trickpts.ok { background: var(--ok); } #trickpts.sketchy { background: #e6b77a; }
+  #line { top: 30%; right: 36px; text-align: right; font: italic 800 26px/1 var(--cond); letter-spacing: .04em; text-transform: uppercase; transition: opacity .4s; }
+  #line small { display: block; margin-top: 6px; font: 600 10px/1 'Avenir Next', sans-serif; font-style: normal; letter-spacing: .3em; opacity: .75; }
+  #line.off { opacity: 0; }
+  #pad { top: 30px; right: 32px; font: 600 10px/1 'Avenir Next', sans-serif; letter-spacing: .2em; text-transform: uppercase; color: #ffb3a8; opacity: .8; }
+  #pad::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 9px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
+  #pad.on { color: #9df0a8; }
+  #toast { top: 64px; left: 0; right: 0; text-align: center; font: italic 700 20px/1 var(--cond); letter-spacing: .16em; text-transform: uppercase; transition: opacity .5s; }
+  #toast.off { opacity: 0; }
+  #wind { position: fixed; bottom: 46px; left: 50%; width: 140px; margin-left: -70px; height: 4px; background: rgba(255,255,255,.18); transform: skewX(-24deg); transition: opacity .25s; }
+  #wind.off { opacity: 0; } #wind i { position: absolute; top: 0; bottom: 0; left: 50%; background: var(--ice); }
+  #help { position: fixed; right: 32px; bottom: 30px; max-width: 380px; padding: 18px 22px; font-size: 12.5px; line-height: 1.7;
+    background: rgba(10,12,16,.62); border-left: 3px solid var(--sig); backdrop-filter: blur(12px); transition: opacity .3s; }
+  #help b { color: var(--ok); font-weight: 600; } #help .k { opacity: .55; } #help.off { opacity: 0; pointer-events: none; }
+  /* title */
+  #start { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding-left: 8vw; cursor: pointer;
+    background: linear-gradient(100deg, rgba(6,9,14,.82) 0%, rgba(6,9,14,.5) 40%, rgba(6,9,14,0) 72%); transition: opacity .6s; }
+  #start::before { content: 'A FREESKI GAME'; margin-bottom: 18px; font: 600 11px/1 'Avenir Next', sans-serif; letter-spacing: .5em; color: var(--sig); }
+  #title { font: italic 800 clamp(64px, 10vw, 150px)/0.84 var(--cond); letter-spacing: -.01em; text-transform: uppercase; text-shadow: 0 6px 40px rgba(0,0,0,.3); }
+  #title::after { content: ''; display: block; width: 46%; height: 10px; margin-top: 22px; background: var(--sig); transform: skewX(-24deg); transform-origin: left; }
+  #spots { margin-top: 40px; display: flex; flex-wrap: wrap; gap: 10px; max-width: 70vw; counter-reset: s; }
+  #spots button { counter-increment: s; min-width: 150px; text-align: left; padding: 12px 18px 13px; cursor: pointer; color: var(--chalk); font: italic 700 21px/1 var(--cond);
+    letter-spacing: .04em; text-transform: uppercase; background: rgba(246,245,241,.07); border: 0; border-left: 3px solid rgba(246,245,241,.35); transition: background .2s, color .2s; }
+  #spots button::before { content: '0' counter(s); display: block; margin-bottom: 6px; font: 600 10px/1 'Avenir Next', sans-serif; font-style: normal; letter-spacing: .3em; opacity: .6; }
+  #spots button.on { color: var(--ink); background: var(--chalk); border-color: var(--sig); }
+  #start p { margin: 30px 0 0; font: 600 11px/1.6 'Avenir Next', sans-serif; letter-spacing: .3em; text-transform: uppercase; opacity: .78; animation: pulse 2.2s ease-in-out infinite; }
+  #loading { margin-top: 14px; font: 600 10px/1 'Avenir Next', sans-serif; letter-spacing: .3em; text-transform: uppercase; opacity: .5; }
+  @keyframes pulse { 50% { opacity: .38; } }
+  .hidden { opacity: 0 !important; pointer-events: none !important; }
+  /* menu */
+  #menu { position: fixed; top: 0; bottom: 0; left: 0; width: 420px; padding: 40px 36px; overflow-y: auto; background: rgba(8,10,14,.86); backdrop-filter: blur(16px);
+    border-right: 3px solid var(--sig); transition: transform .35s cubic-bezier(.2,1,.3,1); }
+  #menu.off { transform: translateX(-110%); }
+  #menu h2 { margin: 0 0 6px; font: italic 800 40px/1 var(--cond); text-transform: uppercase; }
+  #menu h3 { margin: 26px 0 10px; font: 600 10px/1 'Avenir Next', sans-serif; letter-spacing: .32em; text-transform: uppercase; color: var(--sig); }
+  #menu .row { display: grid; grid-template-columns: 1fr 140px 44px; align-items: center; gap: 10px; padding: 7px 10px; font-size: 13px; border-left: 3px solid transparent; }
+  #menu .row.sel { background: rgba(255,255,255,.08); border-left-color: var(--sig); }
+  #menu .row span:last-child { text-align: right; font-variant-numeric: tabular-nums; opacity: .8; }
+  #menu input[type=range] { width: 140px; accent-color: var(--sig); }
+  #menu .seg { display: flex; gap: 6px; } #menu .seg button { flex: 1; padding: 8px 0; background: rgba(255,255,255,.08); color: var(--chalk); border: 0; cursor: pointer; font: italic 700 15px var(--cond); text-transform: uppercase; letter-spacing: .06em; }
+  #menu .seg button.on { background: var(--chalk); color: var(--ink); }
+  #menu .note { font-size: 11.5px; line-height: 1.6; opacity: .6; margin-top: 18px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/build/three.module.js",
+  "three/addons/": "./vendor/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="score" class="hud">0</div>
+<div id="best" class="hud"></div>
+<div id="speed" class="hud">0<small>KM/H</small></div>
+<div id="where" class="hud"></div>
+<div id="trick" class="hud off"></div><div id="trickpts" class="hud off"></div>
+<div id="line" class="hud off"></div>
+<div id="pad" class="hud">No controller — press any button on it</div>
+<div id="toast" class="hud off"></div>
+<div id="wind" class="off"><i></i></div>
+<div id="help" class="off">
+  <b>Left stick</b> carve · push hard forward / back = nose / tail press (butter)<br>
+  <b>Right stick</b> push it any way to crouch, let it go to pop (or hold <b>A</b> and let go) — a longer hold pops higher<br>
+  <b>Right stick</b> sideways on the snow winds up a spin: let go at the lip and it pops and spins · in the air: spin<br>
+  A quick pull down and let go = straight air · hold it down longer = it loads a backflip<br>
+  <b>Right stick</b> down = backflip, up = frontflip · diagonals with spin = corks, rodeos, mistys<br>
+  <b>Left stick</b> in the air tips you off-axis · let the sticks go near the snow and he lines up to land<br>
+  <b>LT / RT</b> grab with the left / right hand · left stick picks it: forward = tip, back = tail, across = mute, out = japan, both triggers = truck driver<br>
+  Grabbing tucks you, so you spin faster · let go before you land<br>
+  <b>Rails & boxes</b> ride or pop onto them · right stick = swap · A = pop off · wind up before the end to spin out<br>
+  <b>Press + right stick</b> on the snow = butter spins<br>
+  <b>X</b> push with your poles (hold to keep poling) · <b>LB</b> tuck · <b>B</b> hockey stop · <b>Y</b> back to just before your last jump<br>
+  <b>D-pad up / down</b> next / previous part of the park · <b>Back</b> camera · <b>RB</b> instant replay · <b>Start</b> settings<br>
+  <span class="k">Keyboard: WASD = left stick · arrows = right stick · Space = A · Q / E = grabs · Shift pole push · Z tuck · X brake · R retry · ] / [ park spots · C camera · F replay · Esc settings · H help</span>
+</div>
+<div id="menu" class="off"></div>
+<div id="start"><div id="title">Snowline</div>
+  <div id="spots"></div>
+  <p>Press A on the controller, or click, to drop in · D-pad / arrows pick where</p>
+  <div id="loading">Loading the mountain…</div></div>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
